@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 
 const ADMIN_PASS = "unscroll2025";
@@ -97,20 +95,16 @@ const INIT_STORIES = [
    emailjs.send("SERVICE","TEMPLATE",{to_email, to_name, program})
    Şimdilik mailto ile kullanıcının mail uygulaması açılır.
 ──────────────────────────────────────────────────────────── */
-import emailjs from "@emailjs/browser";
-
-const sendEmail = (toEmail, toName, myTasks, grp) => {
-  const programText = buildProgramText(
-    {name: toName, email: toEmail, group: grp, 
-     score: Object.values(answers).filter(Boolean).length,
-     date: new Date().toLocaleDateString("tr-TR")},
-    myTasks
-  );
-  return emailjs.send("SERVICE_ID", "TEMPLATE_ID", {
-    to_email: toEmail,
-    to_name:  toName,
-    program:  programText,
-  }, "PUBLIC_KEY");
+const sendViaMailto = (toEmail, toName, myTasks, grp) => {
+  const g = GROUP[grp];
+  const taskLines = myTasks.map((t,i)=>{
+    const q = QUESTIONS.find(q=>q.cat===t.cat);
+    return `${i+1}. [${t.lvl.toUpperCase()}] ${t.title} — ${q.label}\n   ${t.desc}`;
+  }).join("\n\n");
+  const body = `Merhaba ${toName},\n\nunscroll detoks programın hazır!\n\nSonuç: ${g.label} (${g.zone})\n\n--- GÖREVLER ---\n\n${taskLines}\n\n---\nunscroll.app — Algoritmayı değil, hayatını yönet.`;
+  const subject = encodeURIComponent("unscroll — Kişisel Detoks Programın 📵");
+  const encodedBody = encodeURIComponent(body);
+  window.open(`mailto:${toEmail}?subject=${subject}&body=${encodedBody}`, "_self");
 };
 
 /* ── PDF PRINT ───────────────────────────────────────────────
@@ -518,13 +512,17 @@ export default function App() {
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 mb-4"/>
             <button
               disabled={selTasks.length===0||!email||!name}
-              onClick={async()=>{
+              onClick={()=>{
                 const u={name,email,tasks:selTasks,group,score,date:new Date().toLocaleDateString("tr-TR")};
                 setUsers(us=>[...us.filter(x=>x.email!==email),u]);
                 setCurUser(u);
-                sendViaMailto(email, name, TASKS.filter(t=>selTasks.includes(t.id)), group);
                 setEmailSent(true);
                 go("program");
+                try {
+                  sendViaMailto(email, name, TASKS.filter(t=>selTasks.includes(t.id)), group);
+                } catch(e) {
+                  console.log("Mail gönderilemedi:", e);
+                }
               }}
               className={`w-full py-4 rounded-2xl font-semibold transition
                 ${selTasks.length>0&&email&&name?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
