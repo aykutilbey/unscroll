@@ -92,112 +92,82 @@ const INIT_STORIES = [
   {id:3,name:"Zeynep A.",date:"Mart 2025",  story:"Sorumluluk ortağı görevini arkadaşımla birlikte uyguladık. Birbirimizi motive ettik ve ikimiz de detoksumuzu tamamladık!",approved:true},
 ];
 
-/* ── E-POSTA (mailto) ────────────────────────────────────────
-   Gerçek Next.js projesinde EmailJS ile tam otomatik olur:
-   emailjs.send("SERVICE","TEMPLATE",{to_email, to_name, program})
-   Şimdilik mailto ile kullanıcının mail uygulaması açılır.
-──────────────────────────────────────────────────────────── */
-const sendViaMailto = (toEmail, toName, myTasks, grp) => {
-  const g = GROUP[grp];
-  const taskLines = myTasks.map((t,i)=>{
-    const q = QUESTIONS.find(q=>q.cat===t.cat);
-    return `${i+1}. [${t.lvl.toUpperCase()}] ${t.title} — ${q.label}\n   ${t.desc}`;
-  }).join("\n\n");
-  const body = `Merhaba ${toName},\n\nunscroll detoks programın hazır!\n\nSonuç: ${g.label} (${g.zone})\n\n--- GÖREVLER ---\n\n${taskLines}\n\n---\nunscroll.app — Algoritmayı değil, hayatını yönet.`;
-  const subject = encodeURIComponent("unscroll — Kişisel Detoks Programın 📵");
-  const encodedBody = encodeURIComponent(body);
-  window.open(`mailto:${toEmail}?subject=${subject}&body=${encodedBody}`, "_self");
-};
-
-/* ── PDF PRINT ───────────────────────────────────────────────
-   Harici kütüphane gerektirmez. Yeni sekmede şık HTML açar,
-   tarayıcının Yazdır → PDF Olarak Kaydet akışını tetikler.
-──────────────────────────────────────────────────────────── */
-const printPDF = (user, myTasks) => {
+/* ── PDF (HTML blob download) ────────────────────────────── */
+const downloadHTML = (user, myTasks) => {
   const g = GROUP[user.group];
-  const lvlTR = {kolay:"Kolay",orta:"Orta",zor:"Zor"};
   const lvlColor = {kolay:"#059669",orta:"#d97706",zor:"#dc2626"};
-
+  const lvlTR    = {kolay:"Kolay",  orta:"Orta",   zor:"Zor"};
   const rows = myTasks.map((t,i) => {
     const q = QUESTIONS.find(q=>q.cat===t.cat);
-    return `
-      <tr style="border-bottom:1px solid #f3f4f6;">
-        <td style="padding:12px 8px;color:#6b7280;font-size:13px;">${i+1}</td>
-        <td style="padding:12px 8px;">
-          <div style="font-weight:600;color:#111827;font-size:14px;">${t.title}</div>
-          <div style="color:#9ca3af;font-size:12px;margin-top:3px;">${q.emoji} ${q.label}</div>
-          <div style="color:#6b7280;font-size:12px;margin-top:4px;">${t.desc}</div>
-        </td>
-        <td style="padding:12px 8px;">
-          <span style="background:${lvlColor[t.lvl]}20;color:${lvlColor[t.lvl]};
-            font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;">
-            ${lvlTR[t.lvl]}
-          </span>
-        </td>
-        <td style="padding:12px 8px;text-align:center;">
-          <div style="width:20px;height:20px;border:2px solid #d1fae5;border-radius:5px;margin:auto;"></div>
-        </td>
-      </tr>`;
+    return `<tr style="border-bottom:1px solid #f3f4f6">
+      <td style="padding:12px 8px;color:#9ca3af;font-size:13px;width:28px">${i+1}</td>
+      <td style="padding:12px 8px">
+        <div style="font-weight:600;color:#111827;font-size:14px">${t.title}</div>
+        <div style="color:#9ca3af;font-size:12px;margin-top:3px">${q.emoji} ${q.label}</div>
+        <div style="color:#6b7280;font-size:12px;margin-top:4px">${t.desc}</div>
+      </td>
+      <td style="padding:12px 8px;white-space:nowrap">
+        <span style="background:${lvlColor[t.lvl]}18;color:${lvlColor[t.lvl]};font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px">${lvlTR[t.lvl]}</span>
+      </td>
+      <td style="padding:12px 16px;text-align:center">
+        <div style="width:18px;height:18px;border:2px solid #d1fae5;border-radius:4px;display:inline-block"></div>
+      </td>
+    </tr>`;
   }).join("");
-
-  const html = `<!DOCTYPE html><html lang="tr"><head>
-    <meta charset="UTF-8"/>
-    <title>unscroll — Detoks Programım</title>
-    <style>
-      *{box-sizing:border-box;margin:0;padding:0;}
-      body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#111827;padding:40px;}
-      @media print{body{padding:20px;} .no-print{display:none!important;}}
-    </style>
+  const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+  <title>unscroll — Detoks Programım</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;background:#fff;color:#111827;padding:48px;max-width:760px;margin:auto}
+  @media print{body{padding:24px}.no-print{display:none!important}}</style>
   </head><body>
-    <!-- Header -->
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;border-bottom:2px solid #f3f4f6;padding-bottom:24px;">
-      <div>
-        <div style="font-size:26px;font-weight:800;letter-spacing:-0.5px;">
-          <span style="color:#10b981;">un</span><span style="color:#111827;">scroll</span>
-        </div>
-        <div style="color:#9ca3af;font-size:12px;margin-top:4px;">Algoritmayı değil, hayatını yönet.</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:13px;font-weight:600;color:#111827;">${user.name}</div>
-        <div style="font-size:12px;color:#9ca3af;">${user.email}</div>
-        <div style="font-size:12px;color:#9ca3af;">${user.date}</div>
-      </div>
+  <div class="no-print" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 20px;margin-bottom:32px;display:flex;align-items:center;justify-content:space-between">
+    <span style="color:#166534;font-size:13px">📄 PDF olarak kaydetmek için:</span>
+    <button onclick="window.print()" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">Yazdır / PDF Kaydet</button>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #f3f4f6">
+    <div>
+      <div style="font-size:24px;font-weight:800;letter-spacing:-0.5px"><span style="color:#10b981">un</span><span style="color:#111827">scroll</span></div>
+      <div style="color:#9ca3af;font-size:12px;margin-top:3px">Algoritmayı değil, hayatını yönet.</div>
     </div>
-    <!-- Result badge -->
-    <div style="background:#f9fafb;border-radius:16px;padding:20px 24px;margin-bottom:28px;display:flex;align-items:center;gap:16px;">
-      <div style="font-size:36px;">${g.emoji}</div>
-      <div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#10b981;margin-bottom:4px;">${g.zone}</div>
-        <div style="font-size:18px;font-weight:700;color:#111827;">${g.label}</div>
-        <div style="font-size:12px;color:#6b7280;margin-top:3px;">${user.score}/9 evet cevabı</div>
-      </div>
+    <div style="text-align:right">
+      <div style="font-weight:600;color:#111827;font-size:13px">${user.name}</div>
+      <div style="color:#9ca3af;font-size:12px">${user.email}</div>
+      <div style="color:#9ca3af;font-size:12px">${user.date}</div>
     </div>
-    <!-- Tasks table -->
-    <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">
-      Görev Listesi — ${myTasks.length} görev
+  </div>
+  <div style="background:#f9fafb;border-radius:14px;padding:18px 22px;margin-bottom:28px;display:flex;align-items:center;gap:16px">
+    <div style="font-size:32px">${g.emoji}</div>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#10b981;margin-bottom:3px">${g.zone}</div>
+      <div style="font-size:17px;font-weight:700;color:#111827">${g.label}</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:2px">${user.score}/9 evet cevabı</div>
     </div>
-    <table style="width:100%;border-collapse:collapse;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden;">
-      <thead>
-        <tr style="background:#f9fafb;">
-          <th style="padding:10px 8px;text-align:left;font-size:11px;color:#9ca3af;font-weight:600;">#</th>
-          <th style="padding:10px 8px;text-align:left;font-size:11px;color:#9ca3af;font-weight:600;">GÖREV</th>
-          <th style="padding:10px 8px;text-align:left;font-size:11px;color:#9ca3af;font-weight:600;">SEVİYE</th>
-          <th style="padding:10px 8px;text-align:center;font-size:11px;color:#9ca3af;font-weight:600;">✓</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <!-- Footer -->
-    <div style="margin-top:28px;text-align:center;color:#d1d5db;font-size:11px;">
-      unscroll.app · Kişisel Detoks Programı
-    </div>
-    <!-- Auto print -->
-    <script>window.onload=()=>{window.print();}<\/script>
+  </div>
+  <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Görev Listesi — ${myTasks.length} görev</div>
+  <table style="width:100%;border-collapse:collapse;border:1px solid #f3f4f6;border-radius:12px;overflow:hidden">
+    <thead><tr style="background:#f9fafb">
+      <th style="padding:10px 8px;text-align:left;font-size:10px;color:#9ca3af;font-weight:600">#</th>
+      <th style="padding:10px 8px;text-align:left;font-size:10px;color:#9ca3af;font-weight:600">GÖREV</th>
+      <th style="padding:10px 8px;text-align:left;font-size:10px;color:#9ca3af;font-weight:600">SEVİYE</th>
+      <th style="padding:10px 8px;text-align:center;font-size:10px;color:#9ca3af;font-weight:600">✓</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="margin-top:28px;text-align:center;color:#d1d5db;font-size:11px;padding-top:16px;border-top:1px solid #f3f4f6">
+    unscroll.app · Kişisel Detoks Programı
+  </div>
   </body></html>`;
-
-  const w = window.open("","_blank");
-  if(w){ w.document.write(html); w.document.close(); }
+  const blob = new Blob([html], {type:"text/html;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "unscroll-programim.html";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
 };
+
+const inputCls = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-emerald-400 bg-white";
 
 const Logo = () => (
   <span className="text-xl font-bold tracking-tight">
@@ -212,7 +182,6 @@ export default function App() {
   const [selTasks,  setSelTasks]  = useState([]);
   const [email,     setEmail]     = useState("");
   const [name,      setName]      = useState("");
-  const [emailSent, setEmailSent] = useState(false);
   const [users,     setUsers]     = useState([]);
   const [stories,   setStories]   = useState(INIT_STORIES);
   const [nextId,    setNextId]    = useState(4);
@@ -232,8 +201,7 @@ export default function App() {
   const yesCats = Object.entries(answers).filter(([,v])=>v).map(([k])=>+k);
   const go      = s => setScreen(s);
   const approvedStories = stories.filter(s=>s.approved);
-
-  const resetTest = () => { setAnswers({}); setCurQ(0); setSelTasks([]); setEmail(""); setName(""); setEmailSent(false); };
+  const resetTest = () => { setAnswers({}); setCurQ(0); setSelTasks([]); };
 
   /* ── LANDING ─────────────────────────────────────────────── */
   if (screen==="landing") return (
@@ -289,22 +257,16 @@ export default function App() {
       </div>
       <div className="max-w-lg mx-auto px-6 pt-12 pb-16">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Hakkımızda</h2>
-        <p className="text-gray-400 text-sm mb-10">
-          unscroll, sosyal medya bağımlılığını bilimsel kriterlerle ölçen ve kişiye özel detoks programları oluşturan bir araçtır.
-          Algoritmayı değil, hayatını yönetmeni hedefliyoruz.
-        </p>
+        <p className="text-gray-400 text-sm mb-10">unscroll, sosyal medya bağımlılığını bilimsel kriterlerle ölçen ve kişiye özel detoks programları oluşturan bir araçtır. Algoritmayı değil, hayatını yönetmeni hedefliyoruz.</p>
         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Ekip</h3>
         <div className="space-y-4">
           {TEAM.map(m=>(
             <div key={m.name} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex items-center gap-5">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-sm flex-shrink-0">
-                {m.initials}
-              </div>
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-sm flex-shrink-0">{m.initials}</div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900">{m.name}</p>
                 <a href={`mailto:${m.email}`} className="text-sm text-gray-400 hover:text-emerald-500 transition block truncate">{m.email}</a>
-                <a href={m.github} target="_blank" rel="noopener noreferrer"
-                  className="text-sm text-gray-400 hover:text-emerald-500 transition block truncate">{m.github}</a>
+                <a href={m.github} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-emerald-500 transition block truncate">{m.github}</a>
               </div>
             </div>
           ))}
@@ -324,8 +286,7 @@ export default function App() {
         <div className="text-5xl mb-6">✉️</div>
         <h2 className="text-3xl font-bold text-gray-900 mb-3">İletişim</h2>
         <p className="text-gray-400 text-sm mb-8 max-w-xs">Bize ulaşmak, öneri iletmek veya destek almak için aşağıdaki adresi kullanabilirsin.</p>
-        <a href="mailto:unscrollhelp@gmail.com"
-          className="bg-white border-2 border-emerald-200 hover:border-emerald-400 rounded-2xl px-8 py-5 transition group">
+        <a href="mailto:unscrollhelp@gmail.com" className="bg-white border-2 border-emerald-200 hover:border-emerald-400 rounded-2xl px-8 py-5 transition group">
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">E-posta</p>
           <p className="text-lg font-semibold text-emerald-600 group-hover:text-emerald-700 transition">unscrollhelp@gmail.com</p>
         </a>
@@ -341,8 +302,7 @@ export default function App() {
         <h2 className="text-2xl font-bold text-gray-900 mt-4 mb-1">Hoş geldin</h2>
         <p className="text-gray-400 text-sm mb-6">E-posta adresinle programına devam et.</p>
         <input value={loginEmail} onChange={e=>{setLoginEmail(e.target.value);setLoginErr("");}}
-          placeholder="E-posta adresin" type="email"
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 mb-2"/>
+          placeholder="E-posta adresin" type="email" className={inputCls+" mb-2"}/>
         {loginErr && <p className="text-red-500 text-xs mb-2">{loginErr}</p>}
         <button onClick={()=>{
             const u=users.find(u=>u.email===loginEmail);
@@ -453,6 +413,17 @@ export default function App() {
     const sorted  = [...TASKS].sort((a,b)=>{const ay=yesCats.includes(a.cat),by=yesCats.includes(b.cat);return ay===by?0:ay?-1:1;});
     const filtered= lvlFilt==="tümü"?sorted:sorted.filter(t=>t.lvl===lvlFilt);
     const toggle  = id=>setSelTasks(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
+
+    // Oturum açık kullanıcı için doğrudan kaydet butonu
+    const handleSave = () => {
+      const u = curUser
+        ? {...curUser, tasks:selTasks, group, score, date:new Date().toLocaleDateString("tr-TR")}
+        : {name, email, tasks:selTasks, group, score, date:new Date().toLocaleDateString("tr-TR")};
+      setUsers(us=>[...us.filter(x=>x.email!==u.email), u]);
+      setCurUser(u);
+      go("program");
+    };
+
     return (
       <div className="min-h-screen bg-gray-50 pb-8">
         <div className="px-8 py-5 bg-white flex justify-between items-center border-b border-gray-100 sticky top-0 z-10">
@@ -505,29 +476,28 @@ export default function App() {
               );
             })}
           </div>
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-            <h3 className="font-semibold text-gray-900 mb-1">Programını Kaydet</h3>
-            <p className="text-sm text-gray-400 mb-4">Bilgilerini gir, programın e-posta ile gelsin.</p>
-            <input value={name} onChange={e=>setName(e.target.value)} placeholder="Adın"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 mb-3"/>
-            <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="E-posta adresin" type="email"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 mb-4"/>
-            <button
-              disabled={selTasks.length===0||!email||!name}
-              onClick={async()=>{
-                const u={name,email,tasks:selTasks,group,score,date:new Date().toLocaleDateString("tr-TR")};
-                setUsers(us=>[...us.filter(x=>x.email!==email),u]);
-                setCurUser(u);
-                sendViaMailto(email, name, TASKS.filter(t=>selTasks.includes(t.id)), group);
-                setEmailSent(true);
-                go("program");
-              }}
+
+          {/* Oturum açmışsa kayıt formu yok, direkt buton */}
+          {curUser ? (
+            <button disabled={selTasks.length===0} onClick={handleSave}
               className={`w-full py-4 rounded-2xl font-semibold transition
-                ${selTasks.length>0&&email&&name?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
-              Programımı Oluştur →
+                ${selTasks.length>0?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
+              Programımı Kaydet →
             </button>
-            {selTasks.length===0 && <p className="text-center text-xs text-gray-400 mt-2">En az 1 görev seçmelisin.</p>}
-          </div>
+          ) : (
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+              <h3 className="font-semibold text-gray-900 mb-1">Programını Kaydet</h3>
+              <p className="text-sm text-gray-400 mb-4">Bilgilerini gir, programın hazırlansın.</p>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Adın" className={inputCls+" mb-3"}/>
+              <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="E-posta adresin" type="email" className={inputCls+" mb-4"}/>
+              <button disabled={selTasks.length===0||!email||!name} onClick={handleSave}
+                className={`w-full py-4 rounded-2xl font-semibold transition
+                  ${selTasks.length>0&&email&&name?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
+                Programımı Oluştur →
+              </button>
+              {selTasks.length===0 && <p className="text-center text-xs text-gray-400 mt-2">En az 1 görev seçmelisin.</p>}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -543,11 +513,7 @@ export default function App() {
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-7 text-center">
             <div className="text-4xl mb-3">🎉</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Programın Hazır!</h2>
-            <p className="text-gray-400 text-sm">
-              {emailSent
-                ? <>Programın <span className="font-medium text-gray-700">{u?.email||email}</span> adresine gönderildi.</>
-                : "Programın hazırlandı."}
-            </p>
+            <p className="text-gray-400 text-sm">İndir butonuyla programını kaydedebilirsin.</p>
           </div>
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="p-5 border-b border-gray-100 flex justify-between items-center">
@@ -573,8 +539,7 @@ export default function App() {
               })}
             </div>
           </div>
-          <button
-            onClick={()=>downloadHTML(u||{name,email,group,score,date:new Date().toLocaleDateString("tr-TR")}, myTasks)}
+          <button onClick={()=>downloadHTML(u||{name,email,group,score,date:new Date().toLocaleDateString("tr-TR")}, myTasks)}
             className="w-full border-2 border-emerald-500 text-emerald-600 font-semibold py-4 rounded-2xl hover:bg-emerald-50 transition flex items-center justify-center gap-2">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -652,7 +617,7 @@ export default function App() {
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
           <textarea value={storyTxt} onChange={e=>setStoryTxt(e.target.value)}
             placeholder="Detoks yolculuğunda neler yaşadın? Hangi görevler işine yaradı? Neler değişti?"
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 resize-none h-36 mb-4"/>
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-emerald-400 resize-none h-36 mb-4 bg-white"/>
           <button disabled={storyTxt.length<10}
             onClick={()=>{
               setStories(s=>[...s,{id:nextId,name:curUser?.name||name||"Anonim",
@@ -704,7 +669,7 @@ export default function App() {
         <h2 className="text-xl font-bold text-white mb-6">unscroll yönetim paneli</h2>
         <input value={adminPass} onChange={e=>{setAdminPass(e.target.value);setAdminErr("");}}
           placeholder="Şifre" type="password"
-          className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-emerald-400 mb-2"/>
+          className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-400 outline-none focus:border-emerald-400 mb-2"/>
         {adminErr && <p className="text-red-400 text-xs mb-2">{adminErr}</p>}
         <button onClick={()=>{if(adminPass===ADMIN_PASS){setAdminPass("");go("admin");}else setAdminErr("Hatalı şifre.");}}
           className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition mt-2">
@@ -722,12 +687,11 @@ export default function App() {
     const reject =id=>setStories(s=>s.filter(x=>x.id!==id));
     const saveEdit=()=>{if(!editStory)return;setStories(s=>s.map(x=>x.id===editStory.id?{...x,story:editStory.text}:x));setEditStory(null);};
     const GRP_LABEL={1:"🟢 Farkındalıklı",2:"🟡 Riskli",3:"🔴 Bozukluk Riski"};
-
     const StoryCard=({s,actions})=>(
       <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
         {editStory?.id===s.id
           ? <textarea value={editStory.text} onChange={e=>setEditStory({...editStory,text:e.target.value})}
-              className="w-full bg-gray-700 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none h-24 mb-3"/>
+              className="w-full bg-gray-700 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-400 outline-none resize-none h-24 mb-3"/>
           : <p className="text-gray-300 text-sm mb-3 italic">"{s.story}"</p>}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-7 h-7 rounded-full bg-emerald-800 flex items-center justify-center text-emerald-400 font-bold text-xs">{s.name[0]}</div>
@@ -745,7 +709,6 @@ export default function App() {
         </div>
       </div>
     );
-
     return (
       <div className="min-h-screen bg-gray-900 pb-12">
         <div className="px-8 py-5 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
@@ -754,9 +717,7 @@ export default function App() {
           </div>
           <button onClick={()=>go("landing")} className="text-sm text-gray-400 hover:text-gray-200 transition">Çıkış</button>
         </div>
-
         <div className="max-w-2xl mx-auto px-6 pt-8 space-y-8">
-          {/* Stats */}
           <div className="grid grid-cols-4 gap-3">
             {[
               {label:"Kullanıcı",     val:users.length},
@@ -770,8 +731,6 @@ export default function App() {
               </div>
             ))}
           </div>
-
-          {/* Users */}
           <div>
             <h3 className="text-lg font-bold text-white mb-4">👥 Kayıtlı Kullanıcılar</h3>
             {users.length===0
@@ -789,13 +748,10 @@ export default function App() {
                     </thead>
                     <tbody>
                       {users.map((u,i)=>(
-                        <tr key={i} className="border-b border-gray-700 last:border-0 hover:bg-gray-750">
+                        <tr key={i} className="border-b border-gray-700 last:border-0">
                           <td className="px-4 py-3 text-gray-200 font-medium">{u.name}</td>
                           <td className="px-4 py-3 text-gray-400 text-xs">{u.email}</td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs text-gray-300">{GRP_LABEL[u.group]}</span>
-                            <span className="text-gray-500 text-xs ml-1">({u.score}/9)</span>
-                          </td>
+                          <td className="px-4 py-3"><span className="text-xs text-gray-300">{GRP_LABEL[u.group]}</span><span className="text-gray-500 text-xs ml-1">({u.score}/9)</span></td>
                           <td className="px-4 py-3 text-gray-400 text-xs">{u.tasks?.length||0} görev</td>
                           <td className="px-4 py-3 text-gray-500 text-xs">{u.date}</td>
                         </tr>
@@ -804,8 +760,6 @@ export default function App() {
                   </table>
                 </div>}
           </div>
-
-          {/* Pending stories */}
           {pending.length>0 && (
             <div>
               <h3 className="text-lg font-bold text-white mb-4">⏳ Onay Bekleyenler</h3>
@@ -816,8 +770,6 @@ export default function App() {
               </div>
             </div>
           )}
-
-          {/* Approved stories */}
           <div>
             <h3 className="text-lg font-bold text-white mb-4">✅ Yayında</h3>
             {approved.length===0
