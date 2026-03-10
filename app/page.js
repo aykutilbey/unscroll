@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 
 const ADMIN_PASS = "unscroll2025";
@@ -512,17 +514,13 @@ export default function App() {
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-400 mb-4"/>
             <button
               disabled={selTasks.length===0||!email||!name}
-              onClick={()=>{
+              onClick={async()=>{
                 const u={name,email,tasks:selTasks,group,score,date:new Date().toLocaleDateString("tr-TR")};
                 setUsers(us=>[...us.filter(x=>x.email!==email),u]);
                 setCurUser(u);
+                sendViaMailto(email, name, TASKS.filter(t=>selTasks.includes(t.id)), group);
                 setEmailSent(true);
                 go("program");
-                try {
-                  sendViaMailto(email, name, TASKS.filter(t=>selTasks.includes(t.id)), group);
-                } catch(e) {
-                  console.log("Mail gönderilemedi:", e);
-                }
               }}
               className={`w-full py-4 rounded-2xl font-semibold transition
                 ${selTasks.length>0&&email&&name?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
