@@ -1,6 +1,6 @@
 "use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import supabase from "./lib/supabase";
 
 const ADMIN_PASS = "unscroll2025";
 
@@ -59,20 +59,20 @@ const TASKS = [
 ];
 
 const ANALYSES = {
-  1:"Sosyal medya zihninin bir köşesinde sürekli çalışan bir arka plan programı gibi. Telefon elinde değilken bile merak, odaklanmanı zorlaştırıyor.",
+  1:"Sosyal medya zihninin bir köşesinde sürekli çalışan bir arka plan programı gibi.",
   2:"Beynin dijital uyarana karşı bağışıklık kazanmış. Aynı keyfi almak için süreyi sürekli artırmak zorunda kalıyorsun.",
-  3:"Sosyal medya senin için duygusal bir emzik haline gelmiş. Giriş yapamadığındaki huzursuzluk, beyninin ne kadar bağımlı olduğunun somut işareti.",
+  3:"Sosyal medya senin için duygusal bir emzik haline gelmiş. Giriş yapamadığındaki huzursuzluk bunun somut işareti.",
   4:"Direksiyonun başında sen yoksun, algoritmalar var. Azaltmak istesen de parmakların senden bağımsız hareket ediyor.",
   5:"Sosyal medya senin 'zaman hırsızın'. Potansiyelini gerçekleştirebileceğin hobileri bu hırsıza kurban ediyorsun.",
   6:"Bu durum artık sadece senin içinde kalmamış. Okuldaki notların veya işindeki verimin zarar görüyor.",
-  7:"İçten içe durumun farkındasın ve bu sende bir suçluluk duygusu yaratıyor. Süreyi saklama ihtiyacı, bağımlılığınla yüzleşmekten korktuğunun işareti.",
-  8:"Sosyal medyayı bir 'duygusal yara bandı' gibi kullanıyorsun. Stresli hissettiğinde sorun çözmek yerine telefonun ışığına sığınıyorsun.",
-  9:"En büyük zararı sevdiklerin görüyor. Telefon ekranı, seninle sevdiklerin arasına örülmüş bir duvar gibi.",
+  7:"İçten içe durumun farkındasın ve bu sende bir suçluluk duygusu yaratıyor.",
+  8:"Sosyal medyayı bir 'duygusal yara bandı' gibi kullanıyorsun.",
+  9:"En büyük zararı sevdiklerin görüyor. Telefon ekranı aranıza bir duvar gibi giriyor.",
 };
 
 const GROUP = {
   1:{emoji:"🟢",label:"Farkındalıklı Kullanıcı",zone:"Güvenli Bölge", color:"emerald",
-     analysis:"Sosyal medya senin hayatını yönetmiyor, sen onu yönetiyorsun. Dijital dünyayı bir araç olarak kullanmayı başarıyorsun.",
+     analysis:"Sosyal medya senin hayatını yönetmiyor, sen onu yönetiyorsun.",
      suggestion:"Mevcut dengeni koru. Haftada bir gün 'Dijital Detoks Saati' belirleyerek bu kontrolü kalıcı hale getirebilirsin."},
   2:{emoji:"🟡",label:"Riskli Kullanıcı",        zone:"Uyarı Bölgesi",color:"amber",
      analysis:"Sosyal medya yavaş yavaş kontrolü ele almaya başlamış. Henüz 'bağımlı' değilsin ama alışkanlıkların seni o yöne sürüklüyor.",
@@ -86,17 +86,10 @@ const LVL_COLOR = {kolay:"bg-emerald-100 text-emerald-700",orta:"bg-amber-100 te
 const GRP_BAR   = {emerald:"bg-emerald-500",amber:"bg-amber-500",red:"bg-red-500"};
 const GRP_BADGE = {emerald:"text-emerald-700 bg-emerald-100",amber:"text-amber-700 bg-amber-100",red:"text-red-700 bg-red-100"};
 
-const INIT_STORIES = [
-  {id:1,name:"Ayşe K.",  date:"Ocak 2025",  story:"3 aylık program sonunda günlük 4 saatlik ekran süremin 45 dakikaya düştüğünü gördüm. Artık kitap okumaya vakit buluyorum!",approved:true},
-  {id:2,name:"Mert T.",  date:"Şubat 2025", story:"Pomodoro tekniği hayatımı değiştirdi. Hem derslerimde çok daha başarılı oldum hem de ailemle kaliteli zaman geçiriyorum.",approved:true},
-  {id:3,name:"Zeynep A.",date:"Mart 2025",  story:"Sorumluluk ortağı görevini arkadaşımla birlikte uyguladık. Birbirimizi motive ettik ve ikimiz de detoksumuzu tamamladık!",approved:true},
-];
-
-/* ── PDF (HTML blob download) ────────────────────────────── */
 const downloadHTML = (user, myTasks) => {
   const g = GROUP[user.group];
   const lvlColor = {kolay:"#059669",orta:"#d97706",zor:"#dc2626"};
-  const lvlTR    = {kolay:"Kolay",  orta:"Orta",   zor:"Zor"};
+  const lvlTR    = {kolay:"Kolay",orta:"Orta",zor:"Zor"};
   const rows = myTasks.map((t,i) => {
     const q = QUESTIONS.find(q=>q.cat===t.cat);
     return `<tr style="border-bottom:1px solid #f3f4f6">
@@ -117,18 +110,16 @@ const downloadHTML = (user, myTasks) => {
   const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
   <title>unscroll — Detoks Programım</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;background:#fff;color:#111827;padding:48px;max-width:760px;margin:auto}
-  @media print{body{padding:24px}.no-print{display:none!important}}</style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#111827;padding:48px;max-width:760px;margin:auto}
+  @media print{.no-print{display:none!important}}</style>
   </head><body>
   <div class="no-print" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 20px;margin-bottom:32px;display:flex;align-items:center;justify-content:space-between">
     <span style="color:#166534;font-size:13px">📄 PDF olarak kaydetmek için:</span>
     <button onclick="window.print()" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">Yazdır / PDF Kaydet</button>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #f3f4f6">
-    <div>
-      <div style="font-size:24px;font-weight:800;letter-spacing:-0.5px"><span style="color:#10b981">un</span><span style="color:#111827">scroll</span></div>
-      <div style="color:#9ca3af;font-size:12px;margin-top:3px">Algoritmayı değil, hayatını yönet.</div>
-    </div>
+    <div><div style="font-size:24px;font-weight:800"><span style="color:#10b981">un</span><span style="color:#111827">scroll</span></div>
+    <div style="color:#9ca3af;font-size:12px;margin-top:3px">Algoritmayı değil, hayatını yönet.</div></div>
     <div style="text-align:right">
       <div style="font-weight:600;color:#111827;font-size:13px">${user.name}</div>
       <div style="color:#9ca3af;font-size:12px">${user.email}</div>
@@ -153,27 +144,18 @@ const downloadHTML = (user, myTasks) => {
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <div style="margin-top:28px;text-align:center;color:#d1d5db;font-size:11px;padding-top:16px;border-top:1px solid #f3f4f6">
-    unscroll.app · Kişisel Detoks Programı
-  </div>
+  <div style="margin-top:28px;text-align:center;color:#d1d5db;font-size:11px;padding-top:16px;border-top:1px solid #f3f4f6">unscroll.app · Kişisel Detoks Programı</div>
   </body></html>`;
-  const blob = new Blob([html], {type:"text/html;charset=utf-8"});
+  const blob = new Blob([html],{type:"text/html;charset=utf-8"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "unscroll-programim.html";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(a.href);
 };
 
 const inputCls = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-emerald-400 bg-white";
-
-const Logo = () => (
-  <span className="text-xl font-bold tracking-tight">
-    <span className="text-emerald-500">un</span><span className="text-gray-900">scroll</span>
-  </span>
-);
+const Logo = () => <span className="text-xl font-bold tracking-tight"><span className="text-emerald-500">un</span><span className="text-gray-900">scroll</span></span>;
 
 export default function App() {
   const [screen,    setScreen]    = useState("landing");
@@ -183,8 +165,7 @@ export default function App() {
   const [email,     setEmail]     = useState("");
   const [name,      setName]      = useState("");
   const [users,     setUsers]     = useState([]);
-  const [stories,   setStories]   = useState(INIT_STORIES);
-  const [nextId,    setNextId]    = useState(4);
+  const [stories,   setStories]   = useState([]);
   const [loginEmail,setLoginEmail]= useState("");
   const [loginErr,  setLoginErr]  = useState("");
   const [curUser,   setCurUser]   = useState(null);
@@ -195,6 +176,8 @@ export default function App() {
   const [adminPass, setAdminPass] = useState("");
   const [adminErr,  setAdminErr]  = useState("");
   const [editStory, setEditStory] = useState(null);
+  const [loading,   setLoading]   = useState(false);
+  const [saveErr,   setSaveErr]   = useState("");
 
   const score   = Object.values(answers).filter(Boolean).length;
   const group   = score<=2?1:score<=5?2:3;
@@ -202,6 +185,21 @@ export default function App() {
   const go      = s => setScreen(s);
   const approvedStories = stories.filter(s=>s.approved);
   const resetTest = () => { setAnswers({}); setCurQ(0); setSelTasks([]); };
+
+  // Hikayeleri Supabase'den çek
+  useEffect(() => {
+    const fetchStories = async () => {
+      const {data} = await supabase.from("stories").select("*").order("created_at", {ascending:false});
+      if (data) setStories(data);
+    };
+    fetchStories();
+  }, []);
+
+  // Kullanıcıları admin için çek
+  const fetchUsers = async () => {
+    const {data} = await supabase.from("users").select("*").order("created_at", {ascending:false});
+    if (data) setUsers(data);
+  };
 
   /* ── LANDING ─────────────────────────────────────────────── */
   if (screen==="landing") return (
@@ -238,7 +236,8 @@ export default function App() {
                 <p className="text-gray-500 text-sm mb-4 italic">"{s.story}"</p>
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs">{s.name[0]}</div>
-                  <div><p className="text-sm font-medium text-gray-800">{s.name}</p><p className="text-xs text-gray-400">{s.date}</p></div>
+                  <div><p className="text-sm font-medium text-gray-800">{s.name}</p>
+                  <p className="text-xs text-gray-400">{new Date(s.created_at).toLocaleDateString("tr-TR",{month:"long",year:"numeric"})}</p></div>
                 </div>
               </div>
             ))}
@@ -304,13 +303,16 @@ export default function App() {
         <input value={loginEmail} onChange={e=>{setLoginEmail(e.target.value);setLoginErr("");}}
           placeholder="E-posta adresin" type="email" className={inputCls+" mb-2"}/>
         {loginErr && <p className="text-red-500 text-xs mb-2">{loginErr}</p>}
-        <button onClick={()=>{
-            const u=users.find(u=>u.email===loginEmail);
-            if(!u){setLoginErr("Bu e-posta ile kayıtlı kullanıcı bulunamadı.");return;}
-            setCurUser(u);go("dashboard");
+        <button onClick={async()=>{
+            setLoading(true);
+            const {data} = await supabase.from("users").select("*").eq("email",loginEmail).single();
+            setLoading(false);
+            if(!data){setLoginErr("Bu e-posta ile kayıtlı kullanıcı bulunamadı.");return;}
+            setCurUser(data); go("dashboard");
           }}
-          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition mt-2">
-          Giriş Yap
+          className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition mt-2 disabled:opacity-50"
+          disabled={loading}>
+          {loading?"Aranıyor...":"Giriş Yap"}
         </button>
         <button onClick={()=>go("landing")} className="w-full mt-3 text-sm text-gray-400 hover:text-gray-600 transition">← Geri dön</button>
       </div>
@@ -346,12 +348,9 @@ export default function App() {
         </div>
         <div className="px-8 py-5 flex justify-between border-t border-gray-100">
           <button onClick={()=>setCurQ(q=>Math.max(0,q-1))} disabled={curQ===0}
-            className="px-6 py-3 rounded-xl text-gray-400 hover:text-gray-700 disabled:opacity-30 transition font-medium">
-            ← Önceki
-          </button>
+            className="px-6 py-3 rounded-xl text-gray-400 hover:text-gray-700 disabled:opacity-30 transition font-medium">← Önceki</button>
           <button disabled={!answered} onClick={()=>{if(isLast)go("results");else setCurQ(q=>q+1);}}
-            className={`px-8 py-3 rounded-xl font-semibold transition
-              ${answered?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
+            className={`px-8 py-3 rounded-xl font-semibold transition ${answered?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
             {isLast?"Testi Bitir ✓":"Sonraki →"}
           </button>
         </div>
@@ -389,10 +388,8 @@ export default function App() {
                   return (
                     <div key={cat} className="flex gap-3 p-3 rounded-xl bg-gray-50">
                       <span className="text-xl">{q.emoji}</span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{q.label}</p>
-                        <p className="text-xs text-gray-500 mt-1">{ANALYSES[cat]}</p>
-                      </div>
+                      <div><p className="text-sm font-medium text-gray-800">{q.label}</p>
+                      <p className="text-xs text-gray-500 mt-1">{ANALYSES[cat]}</p></div>
                     </div>
                   );
                 })}
@@ -414,13 +411,30 @@ export default function App() {
     const filtered= lvlFilt==="tümü"?sorted:sorted.filter(t=>t.lvl===lvlFilt);
     const toggle  = id=>setSelTasks(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
 
-    // Oturum açık kullanıcı için doğrudan kaydet butonu
-    const handleSave = () => {
-      const u = curUser
-        ? {...curUser, tasks:selTasks, group, score, date:new Date().toLocaleDateString("tr-TR")}
-        : {name, email, tasks:selTasks, group, score, date:new Date().toLocaleDateString("tr-TR")};
-      setUsers(us=>[...us.filter(x=>x.email!==u.email), u]);
-      setCurUser(u);
+    const handleSave = async () => {
+      setSaveErr("");
+      setLoading(true);
+      const date = new Date().toLocaleDateString("tr-TR");
+      if (curUser) {
+        // Oturum açık: güncelle
+        const {error} = await supabase.from("users").update({
+          tasks: selTasks, group_num: group, score, 
+        }).eq("email", curUser.email);
+        if (error) { setSaveErr("Kayıt sırasında hata oluştu."); setLoading(false); return; }
+        setCurUser({...curUser, tasks:selTasks, group_num:group, score});
+      } else {
+        // Yeni kullanıcı: ekle ya da güncelle
+        const {data:existing} = await supabase.from("users").select("id").eq("email", email).single();
+        if (existing) {
+          await supabase.from("users").update({name, tasks:selTasks, group_num:group, score}).eq("email", email);
+        } else {
+          const {error} = await supabase.from("users").insert({name, email, tasks:selTasks, group_num:group, score});
+          if (error) { setSaveErr("Kayıt sırasında hata oluştu."); setLoading(false); return; }
+        }
+        const {data} = await supabase.from("users").select("*").eq("email", email).single();
+        setCurUser(data);
+      }
+      setLoading(false);
       go("program");
     };
 
@@ -435,8 +449,7 @@ export default function App() {
           <div className="flex gap-2 mb-6 flex-wrap">
             {["tümü","kolay","orta","zor"].map(l=>(
               <button key={l} onClick={()=>setLvlFilt(l)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition capitalize
-                  ${lvlFilt===l?"bg-gray-900 text-white":"bg-white border border-gray-200 text-gray-500 hover:border-gray-400"}`}>
+                className={`px-4 py-2 rounded-full text-sm font-medium transition capitalize ${lvlFilt===l?"bg-gray-900 text-white":"bg-white border border-gray-200 text-gray-500 hover:border-gray-400"}`}>
                 {l}
               </button>
             ))}
@@ -446,11 +459,9 @@ export default function App() {
               const q=QUESTIONS.find(q=>q.cat===task.cat),isSel=selTasks.includes(task.id),isHigh=group>1&&yesCats.includes(task.cat);
               return (
                 <div key={task.id} onClick={()=>toggle(task.id)}
-                  className={`bg-white rounded-2xl p-4 border-2 cursor-pointer transition
-                    ${isSel?"border-emerald-400 shadow-sm":isHigh?"border-emerald-100 hover:border-emerald-300":"border-gray-100 hover:border-gray-200"}`}>
+                  className={`bg-white rounded-2xl p-4 border-2 cursor-pointer transition ${isSel?"border-emerald-400 shadow-sm":isHigh?"border-emerald-100 hover:border-emerald-300":"border-gray-100 hover:border-gray-200"}`}>
                   <div className="flex items-start gap-3">
-                    <div className={`w-5 h-5 mt-0.5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition
-                      ${isSel?"bg-emerald-500 border-emerald-500":"border-gray-300"}`}>
+                    <div className={`w-5 h-5 mt-0.5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition ${isSel?"bg-emerald-500 border-emerald-500":"border-gray-300"}`}>
                       {isSel && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -465,35 +476,32 @@ export default function App() {
                       </div>
                     </div>
                     <button onClick={e=>{e.stopPropagation();setTipId(tipId===task.id?null:task.id);}}
-                      className="w-6 h-6 rounded-full border border-gray-200 flex-shrink-0 flex items-center justify-center text-gray-400 hover:border-gray-400 text-xs font-bold transition">
-                      ?
-                    </button>
+                      className="w-6 h-6 rounded-full border border-gray-200 flex-shrink-0 flex items-center justify-center text-gray-400 hover:border-gray-400 text-xs font-bold transition">?</button>
                   </div>
-                  {tipId===task.id && (
-                    <div className="mt-3 ml-8 p-3 bg-gray-50 rounded-xl text-sm text-gray-600 border border-gray-100">{task.desc}</div>
-                  )}
+                  {tipId===task.id && <div className="mt-3 ml-8 p-3 bg-gray-50 rounded-xl text-sm text-gray-600 border border-gray-100">{task.desc}</div>}
                 </div>
               );
             })}
           </div>
 
-          {/* Oturum açmışsa kayıt formu yok, direkt buton */}
           {curUser ? (
-            <button disabled={selTasks.length===0} onClick={handleSave}
-              className={`w-full py-4 rounded-2xl font-semibold transition
-                ${selTasks.length>0?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
-              Programımı Kaydet →
-            </button>
+            <div>
+              {saveErr && <p className="text-red-500 text-sm mb-3 text-center">{saveErr}</p>}
+              <button disabled={selTasks.length===0||loading} onClick={handleSave}
+                className={`w-full py-4 rounded-2xl font-semibold transition ${selTasks.length>0?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
+                {loading?"Kaydediliyor...":"Programımı Kaydet →"}
+              </button>
+            </div>
           ) : (
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
               <h3 className="font-semibold text-gray-900 mb-1">Programını Kaydet</h3>
               <p className="text-sm text-gray-400 mb-4">Bilgilerini gir, programın hazırlansın.</p>
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Adın" className={inputCls+" mb-3"}/>
               <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="E-posta adresin" type="email" className={inputCls+" mb-4"}/>
-              <button disabled={selTasks.length===0||!email||!name} onClick={handleSave}
-                className={`w-full py-4 rounded-2xl font-semibold transition
-                  ${selTasks.length>0&&email&&name?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
-                Programımı Oluştur →
+              {saveErr && <p className="text-red-500 text-sm mb-3">{saveErr}</p>}
+              <button disabled={selTasks.length===0||!email||!name||loading} onClick={handleSave}
+                className={`w-full py-4 rounded-2xl font-semibold transition ${selTasks.length>0&&email&&name?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
+                {loading?"Kaydediliyor...":"Programımı Oluştur →"}
               </button>
               {selTasks.length===0 && <p className="text-center text-xs text-gray-400 mt-2">En az 1 görev seçmelisin.</p>}
             </div>
@@ -505,7 +513,9 @@ export default function App() {
 
   /* ── PROGRAM ─────────────────────────────────────────────── */
   if (screen==="program") {
-    const u=curUser, myTasks=TASKS.filter(t=>(u?.tasks||[]).includes(t.id)), g=GROUP[u?.group||group];
+    const u=curUser;
+    const myTasks=TASKS.filter(t=>(u?.tasks||[]).includes(t.id));
+    const g=GROUP[u?.group_num||u?.group||group];
     return (
       <div className="min-h-screen bg-gray-50 pb-12">
         <div className="px-8 py-5 bg-white border-b border-gray-100"><Logo/></div>
@@ -519,7 +529,7 @@ export default function App() {
             <div className="p-5 border-b border-gray-100 flex justify-between items-center">
               <div>
                 <h3 className="font-semibold text-gray-900">Seçilen Görevler</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{g.emoji} {g.label} · {u?.score||score}/9 evet</p>
+                <p className="text-xs text-gray-400 mt-0.5">{g?.emoji} {g?.label} · {u?.score||score}/9 evet</p>
               </div>
               <span className="text-sm text-gray-400">{myTasks.length} görev</span>
             </div>
@@ -539,7 +549,12 @@ export default function App() {
               })}
             </div>
           </div>
-          <button onClick={()=>downloadHTML(u||{name,email,group,score,date:new Date().toLocaleDateString("tr-TR")}, myTasks)}
+          <button onClick={()=>downloadHTML({
+              name:u?.name||name, email:u?.email||email,
+              group:u?.group_num||u?.group||group,
+              score:u?.score||score,
+              date:new Date().toLocaleDateString("tr-TR")
+            }, myTasks)}
             className="w-full border-2 border-emerald-500 text-emerald-600 font-semibold py-4 rounded-2xl hover:bg-emerald-50 transition flex items-center justify-center gap-2">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -618,16 +633,19 @@ export default function App() {
           <textarea value={storyTxt} onChange={e=>setStoryTxt(e.target.value)}
             placeholder="Detoks yolculuğunda neler yaşadın? Hangi görevler işine yaradı? Neler değişti?"
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-emerald-400 resize-none h-36 mb-4 bg-white"/>
-          <button disabled={storyTxt.length<10}
-            onClick={()=>{
-              setStories(s=>[...s,{id:nextId,name:curUser?.name||name||"Anonim",
-                date:new Date().toLocaleDateString("tr-TR",{month:"long",year:"numeric"}),
-                story:storyTxt,approved:false}]);
-              setNextId(n=>n+1);setStoryTxt("");go("dashboard");
+          <button disabled={storyTxt.length<10||loading}
+            onClick={async()=>{
+              setLoading(true);
+              const {data} = await supabase.from("stories").insert({
+                name: curUser?.name||name||"Anonim",
+                story: storyTxt,
+                approved: false,
+              }).select().single();
+              if(data) setStories(s=>[data,...s]);
+              setLoading(false); setStoryTxt(""); go("dashboard");
             }}
-            className={`w-full py-4 rounded-2xl font-semibold transition
-              ${storyTxt.length>=10?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
-            Hikayemi Gönder ✓
+            className={`w-full py-4 rounded-2xl font-semibold transition ${storyTxt.length>=10?"bg-emerald-500 hover:bg-emerald-600 text-white":"bg-gray-100 text-gray-300 cursor-not-allowed"}`}>
+            {loading?"Gönderiliyor...":"Hikayemi Gönder ✓"}
           </button>
         </div>
       </div>
@@ -652,7 +670,8 @@ export default function App() {
                   <p className="text-gray-600 text-sm mb-4 italic">"{s.story}"</p>
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs">{s.name[0]}</div>
-                    <div><p className="text-sm font-medium text-gray-800">{s.name}</p><p className="text-xs text-gray-400">{s.date}</p></div>
+                    <div><p className="text-sm font-medium text-gray-800">{s.name}</p>
+                    <p className="text-xs text-gray-400">{new Date(s.created_at).toLocaleDateString("tr-TR",{month:"long",year:"numeric"})}</p></div>
                   </div>
                 </div>
               ))}
@@ -671,7 +690,12 @@ export default function App() {
           placeholder="Şifre" type="password"
           className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-400 outline-none focus:border-emerald-400 mb-2"/>
         {adminErr && <p className="text-red-400 text-xs mb-2">{adminErr}</p>}
-        <button onClick={()=>{if(adminPass===ADMIN_PASS){setAdminPass("");go("admin");}else setAdminErr("Hatalı şifre.");}}
+        <button onClick={async()=>{
+            if(adminPass!==ADMIN_PASS){setAdminErr("Hatalı şifre.");return;}
+            setAdminPass("");
+            await fetchUsers();
+            go("admin");
+          }}
           className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 rounded-xl transition mt-2">
           Giriş Yap
         </button>
@@ -683,19 +707,33 @@ export default function App() {
   /* ── ADMIN PANEL ─────────────────────────────────────────── */
   if (screen==="admin") {
     const pending=stories.filter(s=>!s.approved), approved=stories.filter(s=>s.approved);
-    const approve=id=>setStories(s=>s.map(x=>x.id===id?{...x,approved:true}:x));
-    const reject =id=>setStories(s=>s.filter(x=>x.id!==id));
-    const saveEdit=()=>{if(!editStory)return;setStories(s=>s.map(x=>x.id===editStory.id?{...x,story:editStory.text}:x));setEditStory(null);};
     const GRP_LABEL={1:"🟢 Farkındalıklı",2:"🟡 Riskli",3:"🔴 Bozukluk Riski"};
+
+    const approveStory = async id => {
+      await supabase.from("stories").update({approved:true}).eq("id",id);
+      setStories(s=>s.map(x=>x.id===id?{...x,approved:true}:x));
+    };
+    const deleteStory = async id => {
+      await supabase.from("stories").delete().eq("id",id);
+      setStories(s=>s.filter(x=>x.id!==id));
+    };
+    const saveEdit = async () => {
+      if(!editStory) return;
+      await supabase.from("stories").update({story:editStory.text}).eq("id",editStory.id);
+      setStories(s=>s.map(x=>x.id===editStory.id?{...x,story:editStory.text}:x));
+      setEditStory(null);
+    };
+
     const StoryCard=({s,actions})=>(
       <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
         {editStory?.id===s.id
           ? <textarea value={editStory.text} onChange={e=>setEditStory({...editStory,text:e.target.value})}
-              className="w-full bg-gray-700 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-400 outline-none resize-none h-24 mb-3"/>
+              className="w-full bg-gray-700 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white outline-none resize-none h-24 mb-3"/>
           : <p className="text-gray-300 text-sm mb-3 italic">"{s.story}"</p>}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-7 h-7 rounded-full bg-emerald-800 flex items-center justify-center text-emerald-400 font-bold text-xs">{s.name[0]}</div>
-          <div><p className="text-sm font-medium text-gray-200">{s.name}</p><p className="text-xs text-gray-500">{s.date}</p></div>
+          <div><p className="text-sm font-medium text-gray-200">{s.name}</p>
+          <p className="text-xs text-gray-500">{new Date(s.created_at).toLocaleDateString("tr-TR",{month:"long",year:"numeric"})}</p></div>
           <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${s.approved?"bg-emerald-900 text-emerald-400":"bg-amber-900 text-amber-400"}`}>
             {s.approved?"Yayında":"Beklemede"}
           </span>
@@ -705,10 +743,11 @@ export default function App() {
           {editStory?.id===s.id
             ? <button onClick={saveEdit} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition">Kaydet</button>
             : <button onClick={()=>setEditStory({id:s.id,text:s.story})} className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1.5 rounded-lg transition">Düzenle</button>}
-          <button onClick={()=>reject(s.id)} className="text-xs bg-red-900 hover:bg-red-800 text-red-300 px-3 py-1.5 rounded-lg transition">Sil</button>
+          <button onClick={()=>deleteStory(s.id)} className="text-xs bg-red-900 hover:bg-red-800 text-red-300 px-3 py-1.5 rounded-lg transition">Sil</button>
         </div>
       </div>
     );
+
     return (
       <div className="min-h-screen bg-gray-900 pb-12">
         <div className="px-8 py-5 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
@@ -737,23 +776,19 @@ export default function App() {
               ? <p className="text-gray-500 text-sm">Henüz kayıtlı kullanıcı yok.</p>
               : <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-700">
-                        <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Ad</th>
-                        <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">E-posta</th>
-                        <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Sonuç</th>
-                        <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Görev</th>
-                        <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Tarih</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="border-b border-gray-700">
+                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Ad</th>
+                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">E-posta</th>
+                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Sonuç</th>
+                      <th className="text-left px-4 py-3 text-gray-400 font-medium text-xs uppercase">Görev</th>
+                    </tr></thead>
                     <tbody>
                       {users.map((u,i)=>(
                         <tr key={i} className="border-b border-gray-700 last:border-0">
                           <td className="px-4 py-3 text-gray-200 font-medium">{u.name}</td>
                           <td className="px-4 py-3 text-gray-400 text-xs">{u.email}</td>
-                          <td className="px-4 py-3"><span className="text-xs text-gray-300">{GRP_LABEL[u.group]}</span><span className="text-gray-500 text-xs ml-1">({u.score}/9)</span></td>
+                          <td className="px-4 py-3"><span className="text-xs text-gray-300">{GRP_LABEL[u.group_num]}</span><span className="text-gray-500 text-xs ml-1">({u.score}/9)</span></td>
                           <td className="px-4 py-3 text-gray-400 text-xs">{u.tasks?.length||0} görev</td>
-                          <td className="px-4 py-3 text-gray-500 text-xs">{u.date}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -765,7 +800,7 @@ export default function App() {
               <h3 className="text-lg font-bold text-white mb-4">⏳ Onay Bekleyenler</h3>
               <div className="space-y-3">
                 {pending.map(s=><StoryCard key={s.id} s={s} actions={
-                  <button onClick={()=>approve(s.id)} className="text-xs bg-emerald-700 hover:bg-emerald-600 text-emerald-200 px-3 py-1.5 rounded-lg transition">✓ Onayla</button>
+                  <button onClick={()=>approveStory(s.id)} className="text-xs bg-emerald-700 hover:bg-emerald-600 text-emerald-200 px-3 py-1.5 rounded-lg transition">✓ Onayla</button>
                 }/>)}
               </div>
             </div>
